@@ -27,7 +27,7 @@ df = pd.merge(df, merged_df, on=['Vehicle ID', 'Frame ID'], how='left')
 
 # Rename the columns to match the expected column names
 df = df.rename(columns={'LocalY_Leader': 'Leader LocalY', 'Mean Speed_Leader': 'Leader Mean Speed', 'Vehicle length_Leader': 'Leader Vehicle length'})
-----------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------
 # Calculate 'Space Headway'
 df['Space Headway'] = df['Leader LocalY'] - df['LocalY'] - df['Leader Vehicle length']
 
