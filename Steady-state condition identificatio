@@ -1,0 +1,160 @@
+# Read the text file (reconstructed NGSIM I80 dataset)
+data = pd.read_csv("DATA (NO MOTORCYCLES).txt", delimiter="\t")  # Assuming tab-separated, adjust delimiter as needed
+
+# Write the DataFrame to a CSV file
+data.to_csv("DATA (NO MOTORCYCLES).csv", index=False)  # Set index=False to avoid writing row numbers as an additional column
+
+
+headers = ['Vehicle ID', 'Frame ID', 'Lane ID', 'LocalY', 'Mean Speed', 
+           'Mean Acceleration', 'Vehicle length', 'Vehicle Class ID', 
+           'Follower ID', 'Leader ID']
+
+# Read the text file with specified headers and delimiter
+df = pd.read_csv("DATA (NO MOTORCYCLES).txt", delimiter="\t", header=None, names=headers)  
+
+# Write the DataFrame to a CSV file
+df.to_csv("output_file.csv", index=False)  # Set index=False to avoid writing row numbers as an additional column
+------------------------------------------------------------------------------------------------------------------------
+# Merge the dataframe with itself on 'Frame ID' and 'Leader ID' to get the leader's attributes
+merged_df = pd.merge(df, df, left_on=['Frame ID', 'Leader ID'], right_on=['Frame ID', 'Vehicle ID'], suffixes=('', '_Leader'))
+
+# Filter the merged dataframe to keep only the necessary columns
+merged_df = merged_df[['Vehicle ID', 'Frame ID', 'LocalY_Leader', 'Mean Speed_Leader', 'Vehicle length_Leader']]
+
+
+# Merge the merged dataframe back to the original dataframe to add the leader's attributes
+df = pd.merge(df, merged_df, on=['Vehicle ID', 'Frame ID'], how='left')
+
+# Rename the columns to match the expected column names
+df = df.rename(columns={'LocalY_Leader': 'Leader LocalY', 'Mean Speed_Leader': 'Leader Mean Speed', 'Vehicle length_Leader': 'Leader Vehicle length'})
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+# Calculate 'Space Headway'
+df['Space Headway'] = df['Leader LocalY'] - df['LocalY'] - df['Leader Vehicle length']
+
+# Calculate 'Time Headway'
+df['Time Headway'] = df['Space Headway'] / df['Mean Speed']
+
+# Convert 'Mean Speed' to km/h
+df['Mean Speed (km/h)'] = df['Mean Speed'] * 3.6
+df['Leader Mean Speed (km/h)'] = df['Leader Mean Speed'] * 3.6
+
+# Calculate 'Relative Velocity'
+df['Relative Velocity'] = abs(df['Leader Mean Speed'] - df['Mean Speed'])
+---------------------------------------------------------------------------------------------------------------------
+# Filter out rows where Leader ID is -1 and Lane ID is 1, 6, or 7
+df = df[(df['Leader ID'] != -1) & (~df['Lane ID'].isin([1, 6, 7]))]
+----------------------------------------------------------------------------------------------------------------------
+import numpy as np
+X_data = df['Mean Speed']
+Y_data = df['Space Headway']
+----------------------------------------------------------------------------------------------------------------------
+# Initialize variables
+consecutive_sequences = []
+current_sequence = []
+
+# Iterate through the dataframe
+for index, row in df.iterrows():
+    if (row['Relative Velocity'] < 1.52) and (row['Mean Acceleration'] >= -0.75) and (row['Mean Acceleration'] <= 0.75):
+        current_sequence.append(index)
+    else:
+        if len(current_sequence) >= 35:
+            consecutive_sequences.append(current_sequence)
+        current_sequence = []
+        
+# Keep rows that belong to consecutive sequences
+filtered_indices = [index for sequence in consecutive_sequences for index in sequence]
+filtered_df = df.loc[filtered_indices]
+
+# Drop rows that do not belong to consecutive sequences
+filtered_data8 = df.drop(index=df.index.difference(filtered_indices))
+
+# Calculate the mean of X and Y
+mean_X8 = np.mean(X_data8)
+mean_Y8 = np.mean(Y_data8)
+
+# Calculate the terms needed for the slope (m) and y-intercept (C)
+numerator = np.sum((X_data8 - mean_X8) * (Y_data8 - mean_Y8))
+denominator = np.sum((X_data8 - mean_X8) ** 2)
+
+# Calculate the slope (m)
+m8 = numerator / denominator
+
+# Calculate the y-intercept (C)
+C8 = mean_Y8 - m8 * mean_X8
+
+# Calculate the predicted Y values
+predicted_Y8 = m8 * X_data8 + C8
+
+# Calculate the total sum of squares (SS_tot)
+SS_tot = np.sum((Y_data8 - np.mean(Y_data8)) ** 2)
+
+# Calculate the residual sum of squares (SS_res)
+SS_res = np.sum((Y_data8 - predicted_Y8) ** 2)
+
+# Calculate R-squared
+R_squared = 1 - (SS_res / SS_tot)
+
+# Calculate the correlation coefficient
+correlation_coefficient = X_data8.corr(Y_data8)
+
+print("Correlation coefficient:", correlation_coefficient)
+
+print("R-squared:", R_squared)
+
+
+# Predict Y values and add them as a new column
+filtered_data8['Space Headway_predicted'] = C8 + m8* filtered_data8['Mean Speed']
+-----------------------------------------------------------------------------------------------------
+
+import matplotlib.pyplot as plt
+
+# Update default font to Times New Roman, size 20, and normal weight
+plt.rcParams.update({'font.size': 20, 'font.weight': 'normal', 'font.family': 'Times New Roman'})
+
+# Create figure with custom size and high resolution
+plt.figure(figsize=(10, 6), dpi=300)
+
+# Plot scatter plot for steady-state data
+plt.scatter(filtered_data1['Mean Speed (km/h)'], filtered_data1['Space Headway'], 
+            alpha=0.5, s=1, label='Steady state')
+
+# Plot scatter plot for 3.5-sec sustenance data
+plt.scatter(filtered_data8['Mean Speed (km/h)'], filtered_data8['Space Headway'], 
+            alpha=0.5, s=5, label='3.5 s sustenance')
+
+# Plot scatter plot for linear fit predictions
+plt.scatter(filtered_data8['Mean Speed (km/h)'], filtered_data8['Space Headway_predicted'], 
+            alpha=0.5, s=5, label='Linear fit line')
+
+# Set axis labels with Times New Roman font, size 20
+plt.xlabel('Mean speed (km/h)', fontsize=20, fontname='Times New Roman')
+plt.ylabel('Space headway (m)', fontsize=20, fontname='Times New Roman')
+
+# Manually adjust axis limits
+plt.xlim(0, 70)
+plt.ylim(0, 120)
+
+# Adjust font size and ensure normal weight for tick labels
+plt.tick_params(axis='both', which='major', labelsize=20)
+
+# Set color of the axes spines (outline) to black
+ax = plt.gca()
+ax.spines['top'].set_color('black')
+ax.spines['bottom'].set_color('black')
+ax.spines['left'].set_color('black')
+ax.spines['right'].set_color('black')
+
+# Set tick color to black
+plt.tick_params(axis='x', colors='black')
+plt.tick_params(axis='y', colors='black')
+
+# Customize legend
+plt.legend(fontsize=20, loc='upper right', frameon=True, markerscale=3, 
+           borderpad=1, labelspacing=1, prop={'family': 'Times New Roman'})  # Increase dot size with markerscale
+
+# Save the plot as a high-resolution image file
+plt.savefig('scatter_plot_comparison_with_legend.png', dpi=300, bbox_inches='tight')
+
+# Display the plot
+plt.show()
+------------------------------------------------------------------------------------------------------------------
