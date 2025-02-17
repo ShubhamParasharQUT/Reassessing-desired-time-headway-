@@ -48,6 +48,40 @@ import numpy as np
 X_data = df['Mean Speed']
 Y_data = df['Space Headway']
 ----------------------------------------------------------------------------------------------------------------------
+import matplotlib.pyplot as plt
+
+# Set global font properties
+plt.rcParams['font.family'] = 'Times New Roman'
+plt.rcParams['font.size'] = 20
+plt.rcParams['font.weight'] = 'normal'  # No bold font
+
+# Create the figure
+plt.figure(figsize=(10, 6), dpi=300)  # High resolution with 300 DPI
+
+# Scatter plot
+plt.scatter(df['Mean Speed (km/h)'], df['Space Headway'], alpha=0.5, s=5)
+
+# Labels
+plt.xlabel('Mean speed (km/h)', color='black', fontsize=20)
+plt.ylabel('Space headway (m)', color='black', fontsize=20)
+
+# Customize axis appearance
+ax = plt.gca()
+ax.spines['top'].set_color('black')
+ax.spines['bottom'].set_color('black')
+ax.spines['left'].set_color('black')
+ax.spines['right'].set_color('black')
+
+# Adjust axis scales
+plt.xlim(0, 70)
+plt.ylim(0, 120)
+
+# Save the plot as an image file
+plt.savefig('scatter_plot.png', dpi=300, bbox_inches='tight')  # High-resolution PNG
+
+# Display the plot
+plt.show()
+--------------------------------------------------------------------------------------------------------------------------
 # Initialize variables
 consecutive_sequences = []
 current_sequence = []
